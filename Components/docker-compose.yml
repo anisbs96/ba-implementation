@@ -1,0 +1,122 @@
+
+version: "2.1"
+
+services:
+
+  ###############################################################
+  #    Kafka Broker
+  ###############################################################
+
+  kafka:
+    image: redpandadata/redpanda:latest
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 1024M
+      - --overprovisioned
+      - --set redpanda.default_topic_replications=1
+      - --set redpanda.auto_create_topics_enabled=true
+      - --kafka-addr INSIDE://0.0.0.0:9094,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr INSIDE://kafka:9094,OUTSIDE://localhost:9092
+      - --pandaproxy-addr 0.0.0.0:8089
+      - --advertise-pandaproxy-addr kafka:8089
+    hostname: kafka
+    ports:
+      - "8089:8089"
+      - "9092:9092"
+      - "9094:9094"
+      - "9644:9644"
+    networks:
+      - flink-network
+
+  ###############################################################
+  #    Redpanda Console
+  ###############################################################
+
+  console:
+    image: redpandadata/console:latest
+    entrypoint: /bin/sh
+    command: -c "echo \"$$CONSOLE_CONFIG_FILE\" > /tmp/config.yml; /app/console"
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["kafka:9094"]
+          schemaRegistry:
+            enabled: true
+            urls: ["http://kafka:8081"]
+        redpanda:
+          adminApi:
+            enabled: true
+            urls: ["http://kafka:9644"]
+    networks:
+      - flink-network
+    ports:
+      - 8079:8080
+    depends_on:
+      - kafka
+
+
+  ###############################################################
+  #    Apache Flink Master
+  ###############################################################
+
+  master:
+    image: apache/flink-statefun:latest
+    expose:
+      - "6123"
+    ports:
+      - "8081:8081"
+      - "8090:8090"
+      - "8091:8091"
+    environment:
+      - ROLE=master
+      - MASTER_HOST=master
+    hostname: master
+    depends_on:
+      - functions
+      - kafka
+    volumes:
+      - ./conf/module.yaml:/opt/statefun/modules/remote/module.yaml
+      - ./conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+    networks:
+      - flink-network
+
+  ###############################################################
+  #    Apache Flink Worker
+  ###############################################################
+
+  worker:
+    image: apache/flink-statefun:latest
+    expose:
+      - "6121"
+      - "6122"
+    depends_on:
+      - master
+      - functions
+      - kafka
+    links:
+      - "master:master"
+    environment:
+      - ROLE=worker
+      - MASTER_HOST=master
+    networks:
+      - flink-network
+    volumes:
+      - ./conf/module.yaml:/opt/statefun/modules/remote/module.yaml
+      - ./conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+
+  ###############################################################
+  #    Functions
+  ###############################################################
+
+  functions:
+    image: anisbsdkhub/functions
+    expose:
+      - "8000"
+    networks:
+      - flink-network
+
+networks:
+  flink-network:
+    driver: bridge

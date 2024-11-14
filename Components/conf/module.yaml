@@ -1,0 +1,29 @@
+
+kind: io.statefun.endpoints.v2/http
+spec:
+  functions: registry/*
+  urlPathTemplate: http://functions:8000/statefun
+  transport:
+    type: io.statefun.transports.v1/async
+---
+kind: io.statefun.kafka.v1/ingress
+spec:
+  id: customer/requests
+  address: kafka:9094
+  consumerGroupId: flink-consumer-group
+  startupPosition:
+    type: earliest
+  topics:
+    - topic: requests
+      valueType: customer/Request
+      targets:
+        - registry/proxy
+---
+kind: io.statefun.kafka.v1/egress
+spec:
+  id: customer/responses
+  address: kafka:9094
+  deliverySemantic:
+    #type: at-least-once
+    type: exactly-once
+    transactionTimeout: 15min

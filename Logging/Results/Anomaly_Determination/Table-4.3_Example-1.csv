@@ -1,0 +1,2 @@
+determination,severity_level,templated_message,direct_cause,rare,fault-target,fault-specific,component,component-specific,phase,frequency_change,frequency,frequency_phase
+Anomaly-FS,ERROR,  TaskManagerRunner [] - Fatal error occurred while executing the TaskManager. Shutting it down,False,False,flink-master,True,flink-worker,True,crash,1.0,4,4

@@ -1,0 +1,2 @@
+determination,severity_level,templated_message,direct_cause,rare,fault-target,fault-specific,component,component-specific,phase,frequency_change,frequency,frequency_phase
+Anomaly-FS,WARN,   NettyTransport [] - Remote connection to [null] failed with java.net.ConnectException: Connection refused:,True,True,flink-master,True,flink-master,True,recover,0.0,1,1
